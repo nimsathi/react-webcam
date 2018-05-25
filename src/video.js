@@ -1,9 +1,4 @@
 const mediaSource = new MediaSource();
-mediaSource.addEventListener('sourceopen', handleSourceOpen, false);
-let mediaRecorder;
-let recordedBlobs;
-let sourceBuffer;
-
 
 const handleSourceOpen = () => {
   console.log('MediaSource opened');
@@ -11,17 +6,23 @@ const handleSourceOpen = () => {
   console.log('Source buffer: ', sourceBuffer);
 };
 
-function handleDataAvailable(event) {
+mediaSource.addEventListener('sourceopen', handleSourceOpen, false);
+let mediaRecorder;
+let recordedBlobs;
+let sourceBuffer;
+
+
+const handleDataAvailable = (event) => {
   if (event.data && event.data.size > 0) {
     recordedBlobs.push(event.data);
   }
-}
+};
 
 function handleStop(event) {
   console.log('Recorder stopped: ', event);
 }
 
-export const startRecording = () => {
+export const startRecording = (stream) => {
   recordedBlobs = [];
   let options = {mimeType: 'video/webm;codecs=vp9'};
   if (!MediaRecorder.isTypeSupported(options.mimeType)) {
@@ -37,10 +38,9 @@ export const startRecording = () => {
     }
   }
   try {
-    mediaRecorder = new MediaRecorder(window.stream, options);
+    mediaRecorder = new MediaRecorder(stream, options);
   } catch (e) {
     console.error(`Exception while creating MediaRecorder: ${e}`);
-    alert(`Exception while creating MediaRecorder: ${e}. mimeType: ${options.mimeType}`);
     return;
   }
   console.log('Created MediaRecorder', mediaRecorder, 'with options', options);
@@ -52,13 +52,12 @@ export const startRecording = () => {
 
 export const stopRecording = () => {
   mediaRecorder.stop();
-  console.log('Recorded Blobs: ', recordedBlobs);
-  // send callback that video has been stopped
+  return recordedBlobs;
 };
 
 
-// move this to onfido-sdk-ui
-// function play() {
-//   const superBuffer = new Blob(recordedBlobs, {type: 'video/webm'});
-//   return window.URL.createObjectURL(superBuffer);
-// }
+export const getVideoUrl = () => {
+  console.log(recordedBlobs);
+  const superBuffer = new Blob(recordedBlobs, {type: 'video/webm'});
+  return window.URL.createObjectURL(superBuffer);
+};
