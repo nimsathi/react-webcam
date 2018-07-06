@@ -1,0 +1,167 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>React Webcam</title>
+  <style>
+    body {
+      font-family: "Helvetica Neue", Helvetica, sans-serif;
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/preact/8.2.7/preact.js"></script>
+  <script crossorigin src="//unpkg.com/prop-types/prop-types.min.js"></script>
+  <script crossorigin src="//unpkg.com/browser-detect@0.2.28/dist/browser-detect.umd.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/preact-compat/3.17.0/preact-compat.js"></script>
+
+  <script type="text/javascript">
+    React = preactCompat;
+    ReactDOM = preactCompat;
+  </script>
+  <script src="//npmcdn.com/babel-transform-in-browser@6.4.6/dist/btib.min.js"></script>
+  <script type="text/es2015">
+    // getUserMedia only works for secure pages
+    if (!/https/.test(window.location.protocol)) window.location.protocol = 'https://';
+    const mediaDevices = navigator.mediaDevices;
+    const getUserMedia = mediaDevices && mediaDevices.getUserMedia ? mediaDevices.getUserMedia.bind(mediaDevices) : null;
+    const hasGetUserMedia = !!(getUserMedia);
+    const noop = () => {};
+
+    const { os, name: browser, version } =  browserDetect();
+
+    class GetUserMediaTest extends React.Component{
+      constructor(props) {
+        super(props);
+        this.state = {
+          result: undefined, 
+        };
+      }
+
+      componentDidMount() {
+        const { constraints } = this.props;
+
+        getUserMedia({ audio: false, video: constraints }, noop, noop)
+          .then(this.handleSuccess.bind(this))
+          .catch(this.handleError.bind(this))
+      }
+
+      handleSuccess(stream) {
+        const { width, height } = stream.getVideoTracks()[0].getSettings();
+        stream.getVideoTracks().forEach(track => track.stop());
+        this.setState({
+          result: true,
+          trackWidth: width,
+          trackHeight: height,
+        });
+      }
+
+      handleError(e) {
+        console.log(e, this.props.constraints);
+        this.setState({
+          result: false,
+          error: e.name,
+        });
+      }
+
+      render() {
+        const { result, error, trackWidth, trackHeight } = this.state;
+        return (
+          <React.Fragment>
+            |`{ JSON.stringify(this.props.constraints).replace(/\"/g, '') }`|{
+              result === true ? `Passed|${ trackWidth }x${ trackHeight }` :
+              result === false ? `Failed|${ error }` :
+              '...Waiting'
+            }|\
+          </React.Fragment>
+        );
+      }
+    }
+    
+    const sizes = [
+      { width: 720 }, // This width fails on some devices
+      { width: 3264, height: 2448  }, // 8 MP
+      { width: 2240, height: 1680 }, // 4 MP
+      { width: 1920, height: 1080 }, // HDV
+      { width: 1280, height: 720 }, // HD 720
+      { width: 720, height: 1280 }, // Portrait
+      { width: 1000, height: 1000 }, // Square
+      { width: 640, height: 480 }, // VGA
+      { width: 320, height: 240 }, // QVGA
+      { width: 240, height: 320 }, // QVGA portrait
+    ];
+
+    class App extends React.Component {
+      state = {
+        hasPermission: undefined,
+      };
+
+      askPermission = () => {
+        getUserMedia({audio: false, video: { ...sizes[0], facingMode: 'user'}}, noop, noop)
+          .then(ev => this.handlePermissions(true, ev))
+          .catch(err => this.handlePermissions(false, err));
+      }
+
+      handlePermissions(result, err) {
+        console.log(err);
+        this.setState({
+          hasPermission: !!result,
+          error: err.name || err.message,
+        });
+      }
+
+      renderTests() {
+        return [
+          ...sizes.map(size => ({ ...size, facingMode: 'user' })),
+          // ideal
+          ...sizes.map(({ width, height }) => ({ advanced: [
+            { width: {ideal: width }},
+            { height: {ideal: height }},
+          ], facingMode: 'user'})),
+          // advanced: min/max
+          ...sizes.map(({ width, height }) => ({ advanced: [
+            { width: {min: width, max: width }},
+            { height: {min: height, max: height }},
+          ], facingMode: 'user'})),
+          // optional: min/max
+          ...sizes.map(({ width, height }) => ({optional:  [
+            { width: {min: width, max: width }},
+            { height: {min: height, max: height }},
+          ]})),
+          // optional as array
+          { optional: sizes.map(({ height }) => ({ minHeight: height })) },
+          { optional: sizes.map(({ width }) => ({ minWidth: width })) },
+          { optional: sizes.map(({ width, height }) => ({ minWidth: width, minHeight: height })) },
+          {}
+        ].map((constraints, index) =>
+          <GetUserMediaTest key={index} constraints={constraints} />
+        );
+      }
+
+      render() {
+        const { hasPermission, error } = this.state;
+        return (
+          <div id="results">
+            { os } / { browser } { version }
+            {
+              hasPermission === true ?
+                <React.Fragment>
+                  \|constraints|track size/error|\|---|---|\
+                  {this.renderTests()}
+                </React.Fragment>
+                 :
+                hasPermission === false ?
+                  <span>{error}</span> :
+                  <button id="start" onClick={this.askPermission}>Start</button>
+            }
+          </div>
+        );
+      }
+    }
+
+  ReactDOM.render(<App/>, document.getElementById('root'));
+  </script>
+</body>
+</html>
