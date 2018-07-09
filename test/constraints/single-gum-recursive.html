@@ -1,0 +1,178 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>React Webcam</title>
+  <style>
+    body {
+      font-family: "Helvetica Neue", Helvetica, sans-serif;
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/preact/8.2.7/preact.js"></script>
+  <script crossorigin src="//unpkg.com/prop-types/prop-types.min.js"></script>
+  <script crossorigin src="//unpkg.com/browser-detect@0.2.28/dist/browser-detect.umd.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/preact-compat/3.17.0/preact-compat.js"></script>
+
+  <script type="text/javascript">
+    React = preactCompat;
+    ReactDOM = preactCompat;
+  </script>
+  <script src="//npmcdn.com/babel-transform-in-browser@6.4.6/dist/btib.min.js"></script>
+  <script type="text/es2015">
+    // getUserMedia only works for secure pages
+    if (!/https/.test(window.location.protocol)) window.location.protocol = 'https://';
+    const mediaDevices = navigator.mediaDevices;
+    const getUserMedia = mediaDevices && mediaDevices.getUserMedia ? mediaDevices.getUserMedia.bind(mediaDevices) : null;
+    const hasGetUserMedia = !!(getUserMedia);
+    const noop = () => {};
+
+    const { os, name: browser, version } =  browserDetect();
+
+    const RESULTS_KEY = 'gumresults';
+    const STORE_RESULTS_PARAM = 'storeResult';
+
+    const sizes = [
+      { width: 960 }, // Some devices fail with a range between 960 - 640
+      { width: 720 }, // If the above fails, this should fail too
+      { width: 961 }, // If the two above fail, this wont fail
+      { height: 480 }, // This is a potentially desired a fallback height
+      { width: 3264, height: 2448  }, // 8 MP
+      { width: 2240, height: 1680 }, // 4 MP
+      { width: 1920, height: 1080 }, // HDV
+      { width: 1280, height: 720 }, // HD 720
+      { width: 720, height: 1280 }, // Portrait
+      { width: 1000, height: 1000 }, // Square
+      { width: 640, height: 480 }, // VGA
+      { width: 320, height: 240 }, // QVGA
+      { width: 240, height: 320 }, // QVGA portrait
+    ];
+
+    const allConstraints = [
+      ...sizes.map(size => ({ ...size, facingMode: 'user' })),
+      // ideal
+      ...sizes.map(({ width, height }) => ({ advanced: [
+        { width: {ideal: width }},
+        { height: {ideal: height }},
+      ], facingMode: 'user'})),
+      // advanced: min/max
+      ...sizes.map(({ width, height }) => ({ advanced: [
+        { width: {min: width, max: width }},
+        { height: {min: height, max: height }},
+      ], facingMode: 'user'})),
+      // optional: min/max
+      ...sizes.map(({ width, height }) => ({optional:  [
+        { width: {min: width, max: width }},
+        { height: {min: height, max: height }},
+      ]})),
+      // optional as array
+      { optional: sizes.map(({ height }) => ({ minHeight: height })) },
+      { optional: sizes.map(({ width }) => ({ minWidth: width })) },
+      { optional: sizes.map(({ width, height }) => ({ minWidth: width, minHeight: height })) },
+      {}
+    ];
+
+    const GetUserMediaResult = ({ result }) => {
+      const { constraints, success, errorName, errorMessage, trackWidth, trackHeight } = result;
+      return (
+        <div>
+          |`{ JSON.stringify(constraints).replace(/\"/g, '') }`|{
+            success === true ? `Success|${ trackWidth }x${ trackHeight }` :
+            success === false ? `Failure|${ errorName }/${ errorMessage }` :
+            '...Waiting'
+          }|
+        </div>
+      );
+    };
+
+    class App extends React.Component {
+
+      constructor(props) {
+        super(props);
+        this.state = {
+          results: [],
+          done: false,
+        };
+      }
+
+      componentDidMount() {
+        if (!(new URL(window.location)).searchParams.get(STORE_RESULTS_PARAM)) {
+          window.sessionStorage.removeItem(RESULTS_KEY);
+        }
+
+        this.setState({
+          results: JSON.parse(window.sessionStorage.getItem(RESULTS_KEY) || '[]'),
+        }, () => this.callGUMWithConstraints())
+      }
+
+      callGUMWithConstraints() {
+        const { results } = this.state;
+        const constraints = allConstraints[results.length];
+        Promise.race([
+          getUserMedia({ audio: false, video: constraints }, noop, noop)
+            .then(this.handleSuccess.bind(this)),
+          new Promise((result, reject) => setTimeout(() => reject(new Error('Timeout')), 10000)),
+        ]).catch(this.handleError.bind(this))
+          .then(result => this.storeResultAndContinue({ ...result, constraints }));
+      }
+
+      handleSuccess(stream) {
+        const { width, height } = stream.getVideoTracks()[0].getSettings();
+        stream.getVideoTracks().forEach(track => track.stop());
+        return {
+          success: true,
+          trackWidth: width,
+          trackHeight: height,
+        };
+      }
+
+      handleError(e) {
+        return {
+          success: false,
+          errorName: e.name,
+          errorMessage: e.message,
+        };
+      }
+
+      storeResultAndContinue(result) {
+        const { results } = this.state;
+        const newResults = [...results, result];
+        window.sessionStorage.setItem(RESULTS_KEY, JSON.stringify(newResults));
+        if (results.length + 1 < allConstraints.length) {
+          this.reload();          
+        } else {
+          this.setState({
+            done: true,
+            results: newResults,
+          });
+        }
+      }
+
+      reload() {
+        const url = new URL(window.location);
+        url.searchParams.set(STORE_RESULTS_PARAM, true);
+        window.location.href = url.toString();
+      }
+
+      render() {
+        const { results } = this.state;
+        return (
+          <div id="results">
+            { os } / { browser } { version }
+            |constraints|track size/error||
+            |---|---|---|
+            {
+              results.map((result, index) => <GetUserMediaResult key={index} result={result} />)
+            }
+          </div>
+        );
+      }
+    }
+
+  ReactDOM.render(<App/>, document.getElementById('root'));
+  </script>
+</body>
+</html>
