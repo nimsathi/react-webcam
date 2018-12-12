@@ -22,6 +22,7 @@ type CameraType = {
   audio?: boolean,
   onUserMedia: Function,
   onFailure: Function,
+  returnUsedDevices: Function,
   height?: constraintTypes,
   width?: constraintTypes,
   fallbackHeight?: constraintTypes,
@@ -46,7 +47,8 @@ export default class Webcam extends Component<CameraType, State> {
     audio: false,
     screenshotFormat: 'image/webp',
     onUserMedia: () => {},
-    onFailure: () => {}
+    onFailure: () => {},
+    returnUsedDevices: () => {}
   };
 
   static mountedInstances = [];
@@ -142,7 +144,11 @@ export default class Webcam extends Component<CameraType, State> {
 
   handleUserMedia(stream: MediaStream) {
     this.stream = stream;
-    const videoSettings = stream.getVideoTracks()[0].getSettings();
+    const videoTrack = stream.getVideoTracks()[0]
+    const audioTrack = stream.getAudioTracks()[0]
+    this.props.returnUsedDevices({videoTrack, audioTrack})
+    const videoSettings = videoTrack.getSettings();
+
     debugConsole('video track settings', videoSettings);
     this.setState({
       hasUserMedia: true,

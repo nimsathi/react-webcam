@@ -38,6 +38,7 @@ facingMode       | string   | ''           | Facing mode of the camera. It can b
 screenshotFormat | string   | 'image/webp' | format of screenshot
 onUserMedia      | function | noop         | callback when component receives a media stream
 onFailure        | function | noop         | Callback in case an error happens, no getUserMedia for example
+onStreamTracks   | function | noop         | Callback to receive stream tracks information
 
 ## Global functions
 
