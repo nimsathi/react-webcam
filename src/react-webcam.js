@@ -235,9 +235,7 @@ export default class Webcam extends Component<CameraType, State> {
   }
 
   getVideoBlob() {
-    const mimeType = this.mediaRecorder.mimeType;
-    const type = mimeType.split(';')[0]; // mimeType (excluding the codec)
-    return new Blob(this.recordedBlobs, {type});
+    return new Blob(this.recordedBlobs, {type: "video/webm"});
   }
 
   render() {

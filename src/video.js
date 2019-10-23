@@ -13,13 +13,12 @@ const handleStop = (event) => {
 const videoOptions = () => {
   let mimeTypes = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
   let mimeType = '';
-  for (let type in mimeTypes) {
-    if (MediaRecorder.isTypeSupported(mimeTypes[type])) {
-      mimeType = mimeTypes[type];
-      break;
-    }
-    else {
-      console.log(`${mimeTypes[type]} is not Supported`);
+  if (typeof MediaRecorder.isTypeSupported === 'function') {
+    for (let type in mimeTypes) {
+      if (MediaRecorder.isTypeSupported(mimeTypes[type])) {
+        mimeType = mimeTypes[type];
+        break;
+      }
     }
   }
   return mimeType ? {mimeType} : {mimeType: ''};
@@ -40,7 +39,7 @@ export const startRecording = (mediaRecorder) => {
   let recordedBlobs = [];
   mediaRecorder.onstop = handleStop;
   mediaRecorder.ondataavailable = (e) => handleDataAvailable(e, recordedBlobs);
-  mediaRecorder.start(10); // collect 10ms of data
+  mediaRecorder.start(); // collect 10ms of data
   console.log('MediaRecorder started', mediaRecorder);
   return recordedBlobs;
 };

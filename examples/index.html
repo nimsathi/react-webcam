@@ -54,6 +54,17 @@
       -webkit-filter: blur(1px);
       filter: blur(1px);
     }
+    #videoCanvas {
+      display: block;
+      height: 100%;
+      z-index: 0;
+      width:100%;
+      top: 0;
+      left: 0;
+      margin: auto;
+      object-fit: cover;
+      background-color: black;
+    }
   </style>
 </head>
 <body>
@@ -135,7 +146,7 @@
         if (this.state.videoUrl) {
           video.src = this.state.videoUrl;
           video.controls = true
-          onVideoLoaded(video, () => {
+          this.onVideoLoaded(video, () => {
             if (playPromise !== undefined) {
               playPromise.then(() => {
                 console.log('All good')
@@ -160,9 +171,11 @@
               <div className='videoReproduction'>
                 Check your video below...
                 <div className='controls'>
-                  <button onClick={this.play}>Play</button>
+                  <button id='playBtn' onClick={this.play}>Play</button>
                 </div>
-                <video id='videoCanvas' src={this.state.videoUrl} loop controls/>
+                <video id='videoCanvas' preload="none" muted controls playsinline>
+                  <source src={this.state.videoUrl} />
+                </video>
               </div>
             }
           </div>
